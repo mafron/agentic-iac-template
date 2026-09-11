@@ -7,6 +7,7 @@ description: Terraform module、environment、mock testを変更するときに�
 
 このskillは作業手順であり、権限を追加しない。最初に [root AGENTS](../../../AGENTS.md) と
 変更先のnested AGENTSを読む。自動検出されないclientでは、このファイルを明示的に開く。
+Codexでは `$terraform-change` または `/skills` から選択できる。
 
 1. Issueから目的、対象環境、変更しない範囲、受入条件を整理する。
    production、IAM、network、KMS、databaseへの影響を識別する。
@@ -21,13 +22,15 @@ description: Terraform module、environment、mock testを変更するときに�
    hookを解除したり、別toolへ切り替えたりして拒否を回避しない。
 4. 受入条件を観測できるmock assertionと必要最小限のTerraform変更を作る。
    AWS credentialを渡さず、provider mockを維持する。
-   PostToolUseのfmt結果は即時feedbackとして使う。
+   Codexの `apply_patch` 後のPostToolUse fmt結果は即時feedbackとして使う。
+   複数fileのpatchも移動元・移動先を含めて保護scopeの検査対象になる。
 5. リポジトリルートで `make fmt`、差分確認、**`make verify`** を行う。
    `make harness-status` がPASSになることを確認する。
    個別testの成功や古い検証記録を全体PASSに置き換えない。
    ファイルを再編集したら同じ `make verify` を再実行する。
 6. 実planが必要かつplan role・対象・backendが指定済みなら、
    [terraform-plan-review](../terraform-plan-review/SKILL.md) に進む。
+   同梱のCodex coding設定にはAWS credentialがないため、実plan作成は保護されたrunnerへ渡す。
    未設定なら「実plan未実行」と明記し、fixtureの結果と区別する。
 7. PRに変更理由、影響、検証結果、risk、残る人間の判断を載せる。
    production applyは禁止。raw plan/state/secretを添付しない。

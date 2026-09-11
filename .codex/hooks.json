@@ -1,0 +1,44 @@
+{
+  "description": "Terraform development gates for Codex. Review and trust with /hooks.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/agent_hook.py\"",
+            "timeout": 30,
+            "statusMessage": "Checking Terraform command and patch scope"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/agent_hook.py\"",
+            "timeout": 30,
+            "statusMessage": "Checking Terraform formatting",
+            "additionalContextLimit": 500
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/agent_hook.py\"",
+            "timeout": 30,
+            "statusMessage": "Checking current verification evidence"
+          }
+        ]
+      }
+    ]
+  }
+}

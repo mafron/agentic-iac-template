@@ -3,9 +3,9 @@ SHELL := /bin/bash
 .NOTPARALLEL:
 export ENV VAR_FILE BACKEND_CONFIG PLAN_JSON
 
-.PHONY: help fmt validate test lint verify plan policy policy-test demo python-test hooks-install harness-status risk-summary
+.PHONY: help fmt validate test lint verify plan policy policy-test demo python-test hooks-install harness-status risk-summary codex-check
 help:
-	@echo 'fmt | validate | test | lint | verify | plan | policy | policy-test | demo | hooks-install | harness-status | risk-summary'
+	@echo 'fmt | validate | test | lint | verify | plan | policy | policy-test | demo | hooks-install | harness-status | risk-summary | codex-check'
 fmt:
 	@bash scripts/verify.sh fmt
 validate:
@@ -33,3 +33,5 @@ harness-status:
 	@python3 scripts/harness.py status
 risk-summary:
 	@python3 scripts/plan_summary.py "$${PLAN_JSON:?Set PLAN_JSON to an absolute plan JSON path}" --environment "$${ENV:?Set ENV}" --fail-on-high-risk
+codex-check:
+	@python3 scripts/harness.py rules-check

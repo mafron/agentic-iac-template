@@ -6,8 +6,10 @@
 
 ## Task skills / hooks
 
+- 主な接続先はCodex CLI / IDE。設定と導入手順は `docs/codex.md`。
 - Terraform変更: `.agents/skills/terraform-change/SKILL.md` を読む。
 - Plan / risk / policyレビュー: `.agents/skills/terraform-plan-review/SKILL.md` を読む。
+- Codexでは `/skills`、`$terraform-change`、`$terraform-plan-review` で選択する。
 - clientが自動検出しなければ明示的にファイルを開く。skillは権限を拡張しない。
 - `docs/hooks-and-skills.md` のhook契約に従う。拒否を別toolやhook解除で回避しない。
 - verify後は `make harness-status` で現在の入力を再確認する。編集後はverifyをやり直す。
@@ -37,6 +39,8 @@ Mockをreal providerへ差し替えない。`terraform test` は本来applyで�
 ## Plan review
 
 実環境のplanは利用者が指定した環境・account・backendで、承認済みのplan roleのみを使う。
+同梱のCodex coding設定はAWS credentialなし・network無効。実planは別の保護されたrunnerへ渡す。
+以下はそのplan roleを持つ実行経路で使う入口であり、coding sessionの権限を変更する指示ではない。
 `make plan ENV=dev VAR_FILE=/absolute/dev.tfvars BACKEND_CONFIG=/absolute/dev.s3.hcl`。
 wrapperがsaved plan、plan JSON、risk summary、OPA結果、SHA256 manifestを作る。
 create / update / delete / replace、IAM変更、public exposure、network変更を必ず確認する。

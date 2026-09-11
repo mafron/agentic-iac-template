@@ -8,12 +8,14 @@ description: Terraformのsaved plan、plan JSON、risk summary、OPA結果をレ
 [root AGENTS](../../../AGENTS.md)、対象環境のAGENTS、
 [production gate](../../../docs/production-gate.md) を読む。
 このskillはplan/apply credentialの付与や承認を行わない。
+Codexでは `$terraform-plan-review` または `/skills` から選択できる。
 
 1. 入力がfixture、mock test、実AWS saved planのどれかを最初に明示する。
    実planでは対象commit、環境、account、region、backend/state key、plan roleを確認する。
    これらが不明なら推測でAWSへ接続しない。plan JSON自身のtagから環境を決めない。
 2. 自分で作成する場合は、まず `make verify` と `make harness-status`。
-   承認されたdev/stagingのplan roleで次を実行する。
+   同梱のCodex coding設定はAWS credentialなし・network無効なので、保護されたplan runnerへ渡す。
+   次の入口は、別途承認されたdev/stagingのplan roleを持つ実行経路で使う。
 
    ```bash
    make plan ENV=dev VAR_FILE=/absolute/private/dev.tfvars BACKEND_CONFIG=/absolute/private/dev.s3.hcl

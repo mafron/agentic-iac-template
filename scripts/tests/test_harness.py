@@ -73,7 +73,8 @@ class HarnessTests(unittest.TestCase):
         for path in ('../main.tf', '/outside/main.tf', '.git/config', 'AGENTS.md',
                      'modules/network/main.tf', 'environments/prod/main.tf',
                      'environments/dev/backend.tf', 'modules/application/versions.tf',
-                     'scripts/harness.py', '.agents/skills/a/SKILL.md',
+                     'scripts/harness.py', '.agents/skills/a/SKILL.md', '.codex/config.toml',
+                     '.codex/hooks.json', '.codex/rules/terraform.rules',
                      '.claude/settings.json', '.github/workflows/check.yml',
                      'Makefile', 'makefile', 'GNUmakefile', 'terraform.tfstate.backup', '.env', 'dev.tfvars'):
             with self.subTest(path=path), self.assertRaises(harness.GateError):
@@ -248,7 +249,7 @@ class AdapterTests(unittest.TestCase):
 
     def test_post_edit_failure_feedback(self):
         with patch.object(agent_hook, 'fmt_feedback', return_value=(False, 'Fmt check failed.')):
-            result = agent_hook.handle(self.event('PostToolUse', tool_name='Edit'))
+            result = agent_hook.handle(self.event('PostToolUse', tool_name='apply_patch'))
         self.assertEqual(result['hookSpecificOutput']['additionalContext'], 'Fmt check failed.')
 
     def test_stop_has_bounded_repair_and_no_false_pass(self):

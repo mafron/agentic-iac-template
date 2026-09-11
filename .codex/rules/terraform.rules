@@ -1,0 +1,23 @@
+# Extra guard for direct commands requesting execution outside the sandbox.
+# No broad allow rules: make wrappers still use the normal permission flow.
+prefix_rule(
+    pattern = ["terraform"],
+    decision = "forbidden",
+    justification = "Use reviewed make wrappers. Apply and state operations belong to separate human-controlled runners.",
+    match = [
+        "terraform apply",
+        "terraform -chdir=environments/prod destroy",
+        "terraform state rm aws_s3_bucket.example",
+        "terraform import aws_s3_bucket.example example",
+        "terraform force-unlock example",
+    ],
+    not_match = ["make verify", "make policy ENV=dev PLAN_JSON=/private/plan.json"],
+)
+
+prefix_rule(
+    pattern = ["aws"],
+    decision = "forbidden",
+    justification = "The normal agent session has no AWS role. Use the protected plan runner.",
+    match = ["aws sts get-caller-identity", "aws s3 rm s3://example/key"],
+    not_match = ["make verify"],
+)

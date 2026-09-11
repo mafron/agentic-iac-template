@@ -1,0 +1,26 @@
+# Repository defaults for a trusted Codex CLI / IDE project.
+# Review this file and /hooks before trusting the project; never bypass hook trust.
+approval_policy = "on-request"
+approvals_reviewer = "user"
+sandbox_mode = "workspace-write"
+allow_login_shell = false
+
+[features]
+hooks = true
+
+[sandbox_workspace_write]
+network_access = false
+
+# Normal coding sessions carry no AWS credentials. Real plans use a separate runner.
+[shell_environment_policy]
+inherit = "core"
+ignore_default_excludes = false
+
+[shell_environment_policy.filters]
+"AWS_*" = "exclude"
+"TF_TOKEN_*" = "exclude"
+
+[shell_environment_policy.set]
+AWS_CONFIG_FILE = "/dev/null"
+AWS_SHARED_CREDENTIALS_FILE = "/dev/null"
+AWS_EC2_METADATA_DISABLED = "true"
