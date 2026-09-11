@@ -1,5 +1,15 @@
 # 検証結果
 
+## network moduleを通常編集scopeへ変更（2026-09-11）
+
+- 利用者の指定により、`modules/network/` 全体の編集拒否を解除。
+  root / nested AGENTS、hook説明、CODEOWNERS例を通常の変更フローへ揃えた。
+- ローカル `make python-test`: **63件中62件PASS、1件SKIP**（Terraform欠如によるstaged fmt）。
+- networkのvariables / main / outputs / testsの編集と、root / nested cwd / 絶対pathでのpatch許可を確認。
+- production、AGENTS、version pin / lock、backend / stateを含むpatchや、それらへのmoveは引き続き拒否。
+- plan risk / OPA / production gateは維持。実AWS plan / apply / state操作、native Codexセッションは未実行。
+- 全体verifyはローカルのTerraform / TFLint / OPA欠如で実行できず、PR CIで固定版toolchainを使って検証する。
+
 ## 探索とmake helpの誤拒否修正（2026-09-11）
 
 - 原因: `help` のallowlist登録漏れ、限定しすぎた探索書式、Bash全体に対するroot cwd限定。

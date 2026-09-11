@@ -55,7 +55,8 @@ wrapperとhook script自体をレビューし、実AWSの権限は別主体に�
 実Codexセッションでhookが発火したことは、このtestだけでは証明できません。
 導入者は使い捨てcloneで次を確認します。
 
-- 許可したsource readとapplicationのpatchが通り、patch後にfmt feedbackが返る。
+- 許可したsource readとapplication / networkの通常コードのpatchが通り、patch後にfmt feedbackが返る。
+  例えば `modules/network/variables.tf` の編集は通常フローで行える。
 - `make help`、`ls -la`、`rg --files -g '*.tf'`、`rg --files --hidden` を1つずつ実行できる。
   nested cwdでは探索を実行でき、makeはrepoルートへ戻して実行する。`&&` / pipeでの連結は対象外。
 - productionを含む複数file patch、保護pathへのmove、raw applyがPreToolUseで拒否される。

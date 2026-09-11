@@ -46,6 +46,35 @@ class CodexHookTests(unittest.TestCase):
             '*** Add File: modules/application/ok.tf\n+locals { a = 1 }\n'
             '*** Update File: environments/prod/main.tf\n@@\n-old\n+new'))
 
+    def test_network_variables_patch_allowed_from_root_or_nested_cwd(self):
+        cwd = self.root / 'modules/network'
+        cwd.mkdir()
+        for session_cwd, path in ((self.root, 'modules/network/variables.tf'),
+                                  (cwd, 'variables.tf'),
+                                  (self.root, str(cwd / 'variables.tf'))):
+            with self.subTest(cwd=session_cwd, path=path):
+                event = self.event('apply_patch',
+                    f'*** Begin Patch\n*** Update File: {path}\n@@\n-old\n+new\n*** End Patch')
+                event['cwd'] = str(session_cwd)
+                self.assertEqual(agent_hook.handle(event, self.root), {})
+
+    def test_network_patch_still_denies_mixed_production_or_control_files(self):
+        for path in ('environments/prod/variables.tf', 'modules/network/AGENTS.md',
+                     'modules/network/versions.tf', 'modules/network/backend.tf',
+                     'modules/network/.terraform.lock.hcl', 'modules/network/terraform.tfstate'):
+            with self.subTest(path=path):
+                self.assertDenied(self.patch_result(
+                    '*** Update File: modules/network/variables.tf\n@@\n-old\n+new\n'
+                    f'*** Update File: {path}\n@@\n-old\n+new'))
+
+    def test_network_move_obeys_common_path_protection(self):
+        self.assertEqual(self.patch_result(
+            '*** Update File: modules/network/variables.tf\n'
+            '*** Move to: modules/network/inputs.tf\n@@\n-old\n+new'), {})
+        self.assertDenied(self.patch_result(
+            '*** Update File: modules/network/variables.tf\n'
+            '*** Move to: environments/prod/variables.tf\n@@\n-old\n+new'))
+
     def test_move_checks_both_source_and_destination(self):
         for source, target in [('modules/application/main.tf', '.codex/hooks.json'),
                                ('.codex/config.toml', 'modules/application/copy.tf'),
