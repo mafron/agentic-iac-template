@@ -11,7 +11,20 @@
 | `make verify` / `make harness-status` | Terraform / TFLint / OPA欠如でFAIL。古いPASS記録を残さない |
 | 実agent clientセッション | 未実行。JSON adapter契約をPythonで検証 |
 
-追加CIの結果は該当PRのTerraform Checkを参照。以下の初期CI結果と混同しない。
+### Hook / skill拡張のGitHub Actions結果
+
+[PR #4](https://github.com/mafron/agentic-iac-template/pull/4) の
+[Terraform Check](https://github.com/mafron/agentic-iac-template/actions/runs/34568890123) で、
+commit `d1177766e2e332d813b64296e26de0de17535f60` の全検証が **PASS**。
+固定版toolchainは下記初期CIと同じです。
+
+- Terraform fmt、5 rootのbackend無効init / validate / TFLint: PASS。
+- Provider Mocking: 12件PASS。
+- Python regression: **37件すべてPASS、SKIPなし**。実Terraformのstaged blob検査を含む。
+- OPA: 19件PASS、安全/危険fixtureのCLI gateもPASS。
+- 全体verifyから記録生成、`make harness-status`、実pre-push入口への接続: PASS。
+
+native agent client、実AWS plan / apply / state操作は未実行です。
 
 ## 初期GitHub Actionsでの検証（2026-09-11）
 
