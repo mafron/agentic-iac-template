@@ -6,7 +6,6 @@
 /.github/                 @YOUR-ORG/platform-security
 /scripts/                 @YOUR-ORG/platform-security
 /policies/                @YOUR-ORG/platform-security
-/modules/network/         @YOUR-ORG/platform-security
 /modules/application/     @YOUR-ORG/platform-security
 /environments/prod/        @YOUR-ORG/production-owners
 /.githooks/              @YOUR-ORG/platform-security

@@ -127,7 +127,9 @@ raw Terraform、AWS CLI、interpreter、apply、destroy、state/import/force-unl
 このスクリプト自身は入力commandやpatchを実行しません。
 
 AGENTS、Makefile、tool pin/lock、`versions.tf` / `backend.tf`、scripts、policies、CI、hooks、skills、
-prod、networkの編集は保護scopeです。任意のHCLの意味や別名file内のbackend/IAM blockまで判定する機構では
+prodの編集は保護scopeです。`modules/network/` の通常コード・testsは編集でき、ディレクトリ全体を保護しません。
+同module内でもAGENTS、version pin / lock、backend / state等の共通保護は適用します。
+任意のHCLの意味や別名file内のbackend/IAM blockまで判定する機構では
 ありません。高リスク変更の検出はplan/policyと人間のレビューも使います。
 制御自体の変更は、通常agent profileに例外権限を足さず、maintainerの別作業としてレビューします。
 

@@ -294,7 +294,7 @@ def guarded_path(root, cwd, raw_path):
     if not rel.parts or '.git' in rel.parts or private_path(rel):
         raise GateError('State, credential and generated artifacts are outside the edit workflow.')
     if (rel.parts[0] in PROTECTED_DIRS or rel.name in PROTECTED_NAMES
-            or rel.parts[:2] in {('modules', 'network'), ('environments', 'prod')}):
+            or rel.parts[:2] == ('environments', 'prod')):
         raise GateError('Protected control or high-risk scope: prepare a human-reviewed maintenance change.')
     return path
 

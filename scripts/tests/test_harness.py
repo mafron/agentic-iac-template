@@ -66,12 +66,18 @@ class HarnessTests(unittest.TestCase):
                 self.assertFalse(harness.command_allowed(command))
 
     def test_normal_edit_allowed(self):
-        path = harness.guarded_path(self.root, self.root, 'modules/application/main.tf')
-        self.assertEqual(path, self.root / 'modules/application/main.tf')
+        for rel in ('modules/application/main.tf', 'modules/network/main.tf',
+                    'modules/network/variables.tf', 'modules/network/outputs.tf',
+                    'modules/network/tests/network.tftest.hcl'):
+            with self.subTest(path=rel):
+                path = harness.guarded_path(self.root, self.root, rel)
+                self.assertEqual(path, self.root / rel)
 
     def test_protected_and_private_edits_denied(self):
         for path in ('../main.tf', '/outside/main.tf', '.git/config', 'AGENTS.md',
-                     'modules/network/main.tf', 'environments/prod/main.tf',
+                     'environments/prod/main.tf', 'environments/prod/variables.tf',
+                     'modules/network/AGENTS.md', 'modules/network/versions.tf',
+                     'modules/network/backend.tf', 'modules/network/.terraform.lock.hcl',
                      'environments/dev/backend.tf', 'modules/application/versions.tf',
                      'scripts/harness.py', '.agents/skills/a/SKILL.md', '.codex/config.toml',
                      '.codex/hooks.json', '.codex/rules/terraform.rules',

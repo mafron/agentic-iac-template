@@ -2,8 +2,11 @@
 
 ルートのAGENTS.mdに追加する。
 
-- VPC CIDR、subnet CIDR、AZ、route、internet gateway、security groupを高リスクとして扱う。
-- CIDR変更やreplacementを発見したら、影響する全環境をplanで確認し、人間のレビューに回す。
+- このmoduleのコードは通常の編集・Mock検証・PRフローで変更できる。
+  `variables.tf`、`main.tf`、`outputs.tf`、testsを、このディレクトリにあることだけを理由に拒否しない。
+- AGENTS、version pin / lock、backend / stateなど、共通ルールで保護するファイル・操作は引き続き別扱い。
+- コード変更後は `make verify` と `make harness-status` を実行する。
+  実planでCIDR変更、削除・置換、公開範囲の変更等が出た場合は、risk / policyと該当環境の承認手順に従う。
 - SGはデフォルトでingress / egressとも空。必要な通信だけを用途とportを示して追加する。
 - public subnetでもpublic IPの自動割当を有効にしない。private subnetにinternet default routeを作らない。
 - `0.0.0.0/0` / `::/0` からSSHを許可しない。全protocolもSSHを含む。
