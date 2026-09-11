@@ -1,6 +1,19 @@
 # 検証結果
 
-## GitHub Actionsでの検証（2026-09-11）
+## Hook / skill拡張のローカル検証（2026-09-11）
+
+| 対象 | 結果 |
+|---|---|
+| Python regression | 37件中36件PASS、実Terraformを使うstaged fmt 1件は依存不足でSKIP |
+| 実Git hook | 一時repositoryでpre-commit拒否・pre-push成功を確認 |
+| skill形式 | skill-creatorのquick_validateで両SKILL.md PASS |
+| Shell / workflow / hook設定 | Bash構文、YAML、JSON、文書相対link PASS |
+| `make verify` / `make harness-status` | Terraform / TFLint / OPA欠如でFAIL。古いPASS記録を残さない |
+| 実agent clientセッション | 未実行。JSON adapter契約をPythonで検証 |
+
+追加CIの結果は該当PRのTerraform Checkを参照。以下の初期CI結果と混同しない。
+
+## 初期GitHub Actionsでの検証（2026-09-11）
 
 [Terraform Check成功run](https://github.com/mafron/agentic-iac-template/actions/runs/34565676753)
 で、commit `22f7fd119a5ee9cc9f6614242ceab68e190b7200` の `make verify` が **PASS**。

@@ -4,6 +4,15 @@
 製品固有の自動読込がない場合も、利用者または起動プロンプトが明示的に読ませる。
 この指示は権限境界の代替ではない。IAM、CI、repository rules で強制する。
 
+## Task skills / hooks
+
+- Terraform変更: `.agents/skills/terraform-change/SKILL.md` を読む。
+- Plan / risk / policyレビュー: `.agents/skills/terraform-plan-review/SKILL.md` を読む。
+- clientが自動検出しなければ明示的にファイルを開く。skillは権限を拡張しない。
+- `docs/hooks-and-skills.md` のhook契約に従う。拒否を別toolやhook解除で回避しない。
+- verify後は `make harness-status` で現在の入力を再確認する。編集後はverifyをやり直す。
+- hook / skill / gate自体の変更は、理由と負例testを添えて独立した人間のレビュー対象にする。
+
 ## Terraform rules
 
 - `.terraform-version` と各 `versions.tf` の固定版を使う。更新は独立したPRにする。

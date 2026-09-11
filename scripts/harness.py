@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""Small, deterministic local gates. These are not an authorization sandbox."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+RECEIPT = Path('.harness/verification.json')
+SKIP_DIRS = {'.git', '.terraform', '.harness', '__pycache__', '.pytest_cache'}
+SIMPLE_TARGETS = {
+    'fmt', 'validate', 'test', 'lint', 'verify', 'python-test',
+    'policy-test', 'demo', 'harness-status',
+}
+PROTECTED_DIRS = {'.github', '.githooks', '.agents', '.claude', 'scripts', 'policies'}
+PROTECTED_NAMES = {
+    'AGENTS.md', 'CLAUDE.md', 'Makefile', 'makefile', 'GNUmakefile', '.gitignore', '.gitattributes',
+    '.terraform-version', '.tflint-version', '.opa-version', '.tflint.hcl',
+    '.terraform.lock.hcl', 'versions.tf', 'backend.tf',
+}
+
+
+class GateError(Exception):
+    pass
+
+
+def run_git(root, *args):
+    return subprocess.run(['git', '-C', str(root), *args], check=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+
+
+def private_path(path):
+    """Prevent accidental known artifacts; NOT a general secret scanner."""
+    p = Path(path)
+    n = p.name
+    if n.endswith('.example'):
+        return False
+    return ('.harness' in p.parts or '.terraform' in p.parts
+            or 'terraform.tfstate.d' in p.parts
+            or '.tfstate' in n or n == 'tfplan' or n.endswith('.tfplan')
+            or n in {'plan.json', 'crash.log', 'credentials'}
+            or n.startswith('crash.') or n == '.env' or n.startswith('.env.')
+            or n.endswith(('.tfvars', '.tfvars.json', '.s3.hcl', '.pem', '.key'))
+            or n == 'settings.local.json')
+
+
+def fingerprint(root):
+    """Hash file paths, contents and executable bits, including ignored tfvars.
+
+    Only tool outputs/caches are excluded. Refuse symlinks rather than trusting
+    inputs outside this checkout. No source or secret values are printed.
+    """
+    digest = hashlib.sha256()
+    for base, dirs, files in os.walk(root, followlinks=False):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        for name in dirs + sorted(files):
+            path = Path(base) / name
+            if path.is_symlink():
+                raise GateError('Symlink input is unsupported; use regular repository files.')
+        for name in sorted(files):
+            path = Path(base) / name
+            if (name.endswith(('.pyc', '.tfstate', '.tfstate.backup')) or name == 'tfplan'
+                    or name.endswith('.tfplan') or name == 'plan.json'
+                    or name.startswith('crash.')):
+                continue
+            rel = path.relative_to(root).as_posix().encode()
+            content = path.read_bytes()
+            for part in (rel, str(path.stat().st_mode & 0o111).encode(), content):
+                digest.update(len(part).to_bytes(8, 'big'))
+                digest.update(part)
+    return digest.hexdigest()
+
+
+def record_success(root, expected):
+    if fingerprint(root) != expected:
+        raise GateError('Inputs changed during verification. Run make verify again.')
+    path = root / RECEIPT
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix('.tmp')
+    tmp.write_text(json.dumps({'schema': 1, 'command': 'make verify',
+                               'sha256': expected}, sort_keys=True) + '\n')
+    tmp.replace(path)
+
+
+def verification_status(root):
+    try:
+        receipt = json.loads((root / RECEIPT).read_text())
+        if not isinstance(receipt, dict) or receipt.get('schema') != 1:
+            raise ValueError('schema')
+        if receipt.get('command') != 'make verify':
+            raise ValueError('command')
+        if receipt.get('sha256') != fingerprint(root):
+            return False, 'Inputs changed since verification. Run make verify.'
+    except (OSError, ValueError, GateError):
+        return False, 'No valid verification receipt. Run make verify.'
+    return True, 'PASS: current inputs match a successful make verify.'
+
+
+def command_allowed(command):
+    """A deliberately narrow shell grammar; never execute agent-supplied text."""
+    if not isinstance(command, str) or re.search(r'[\n\r;&|`$<>\\*?\[\]{}()!#~]', command):
+        return False
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return False
+    if words in (['git', 'status', '--short'], ['git', 'diff'],
+                 ['git', 'diff', '--stat'], ['git', 'diff', '--cached']):
+        return True
+    if len(words) == 2 and words[0] == 'make' and words[1] in SIMPLE_TARGETS:
+        return True
+    if len(words) < 3 or words[0] != 'make':
+        return False
+    values = {}
+    for word in words[2:]:
+        key, sep, value = word.partition('=')
+        if not sep or key in values or not value:
+            return False
+        values[key] = value
+    if words[1] == 'plan':
+        return (set(values) == {'ENV', 'VAR_FILE', 'BACKEND_CONFIG'}
+                and values['ENV'] in {'dev', 'staging'}
+                and all(Path(values[k]).is_absolute() for k in ('VAR_FILE', 'BACKEND_CONFIG')))
+    if words[1] in {'policy', 'risk-summary'}:
+        return (set(values) == {'ENV', 'PLAN_JSON'}
+                and values['ENV'] in {'dev', 'staging', 'prod'}
+                and Path(values['PLAN_JSON']).is_absolute())
+    return False
+
+
+def guarded_path(root, cwd, raw_path):
+    if not isinstance(raw_path, str) or not raw_path:
+        raise GateError('Missing file path.')
+    root = root.resolve()
+    cwd = Path(cwd).resolve()
+    if not cwd.is_relative_to(root):
+        raise GateError('Working directory must be inside this checkout.')
+    supplied = Path(raw_path)
+    if '..' in supplied.parts:
+        raise GateError('Parent traversal is not accepted.')
+    path = supplied if supplied.is_absolute() else cwd / supplied
+    if not path.is_relative_to(root):
+        raise GateError('File must be inside this checkout.')
+    rel = path.relative_to(root)
+    for parent in (path, *path.parents):
+        if parent == root:
+            break
+        if parent.is_symlink():
+            raise GateError('Symlink writes are not accepted.')
+    if not rel.parts or '.git' in rel.parts or private_path(rel):
+        raise GateError('State, credential and generated artifacts are outside the edit workflow.')
+    if (rel.parts[0] in PROTECTED_DIRS or rel.name in PROTECTED_NAMES
+            or rel.parts[:2] in {('modules', 'network'), ('environments', 'prod')}):
+        raise GateError('Protected control or high-risk scope: prepare a human-reviewed maintenance change.')
+    return path
+
+
+def fmt_feedback(root):
+    try:
+        result = subprocess.run(['terraform', 'fmt', '-check', '-recursive'], cwd=root,
+                                capture_output=True, timeout=20)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False, 'Fmt was not completed (missing Terraform or timeout). Run make verify when available.'
+    if result.returncode:
+        return False, 'Fmt check failed. Run make fmt, review the diff, then make verify.'
+    return True, 'Fmt check passed. Full verification is still required: make verify.'
+
+
+def pre_commit(root):
+    paths = run_git(root, 'diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z')
+    for raw in filter(None, paths.split(b'\0')):
+        path = raw.decode('utf-8')
+        if private_path(path):
+            raise GateError('Staged state, plan or credential artifact detected; remove it from the index.')
+        if path.endswith(('.tf', '.tftest.hcl', '.terraform.lock.hcl')):
+            # Read the INDEX, not a possibly different working-tree copy.
+            content = run_git(root, 'show', ':' + path)
+            try:
+                result = subprocess.run(['terraform', 'fmt', '-check', '-'], input=content,
+                                        capture_output=True, timeout=20)
+            except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+                raise GateError('Staged fmt not completed: install pinned Terraform and retry.') from exc
+            if result.returncode:
+                raise GateError('Staged Terraform is not formatted or valid HCL. Run make fmt and re-stage.')
+
+
+def pre_push(root, ref_lines):
+    head = run_git(root, 'rev-parse', 'HEAD').decode().strip()
+    lines = ref_lines.splitlines()
+    if not lines:
+        raise GateError('Missing push ref input.')
+    for line in lines:
+        parts = line.split()
+        if (len(parts) != 4 or not parts[0].startswith('refs/heads/')
+                or not parts[2].startswith('refs/heads/') or parts[1] != head):
+            raise GateError('Only the verified current HEAD branch may be pushed; other refs need separate verification.')
+    if run_git(root, 'status', '--porcelain', '--untracked-files=all'):
+        raise GateError('Commit or remove pending source changes before push, then run make verify.')
+    ok, reason = verification_status(root)
+    if not ok:
+        raise GateError(reason)
+
+
+def install_hooks(root):
+    current = subprocess.run(['git', '-C', str(root), 'config', '--get', 'core.hooksPath'],
+                             capture_output=True, text=True)
+    if current.returncode not in (0, 1):
+        raise GateError('Cannot read Git hook configuration.')
+    if current.stdout.strip() not in ('', '.githooks'):
+        raise GateError('Existing core.hooksPath found; integrate explicitly instead of overwriting it.')
+    run_git(root, 'config', '--local', 'core.hooksPath', '.githooks')
+    print('Installed repository-local Git hooks. CI remains mandatory.')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('gate', choices=['fingerprint', 'record', 'status', 'pre-commit', 'pre-push', 'install'])
+    parser.add_argument('--expected')
+    args = parser.parse_args()
+    try:
+        if args.gate == 'fingerprint':
+            print(fingerprint(ROOT))
+        elif args.gate == 'record':
+            if not args.expected:
+                raise GateError('Missing verification input hash.')
+            record_success(ROOT, args.expected)
+        elif args.gate == 'status':
+            ok, reason = verification_status(ROOT)
+            print(reason)
+            return 0 if ok else 1
+        elif args.gate == 'pre-commit':
+            pre_commit(ROOT)
+        elif args.gate == 'pre-push':
+            pre_push(ROOT, sys.stdin.read())
+        elif args.gate == 'install':
+            install_hooks(ROOT)
+    except (GateError, OSError, UnicodeError, subprocess.CalledProcessError) as exc:
+        print(f'FAIL: {exc}', file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

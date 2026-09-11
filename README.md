@@ -32,13 +32,16 @@ Terraformには宣言的コード、provider schema、plan、test、stateとい�
 
 | Path | 役割 |
 |---|---|
-| `AGENTS.md` | Agentの永続的な共通契約 |
+| `AGENTS.md` | Agentの永続的な共通契約、作業別skillへの入口 |
+| `.agents/skills/` | Terraform変更とplanレビューのportableなSKILL.md |
+| `.githooks/` | staged blobのcommit検査、検証済みHEADのpush検査 |
+| `.claude/settings.json.example` | 任意のagent hook接続例（PreToolUse / PostToolUse / Stop） |
 | `modules/network/` | VPC、public/private subnet、route、IGW、SG、Mock test、追加指示 |
 | `modules/application/` | S3、暗号化、公開防止、TLS policy、bucket限定IAM policy、Mock test |
 | `environments/{dev,staging,prod}/` | 独立root、S3 backend宣言、変数、example、composition test |
 | `environments/prod/AGENTS.md` | productionでの停止・人間への引き渡し |
 | `policies/opa/` | plan JSON向けRego v1 policyと正例・負例 |
-| `scripts/` | verify / plan / policy、plan要約、Python regression test |
+| `scripts/` | verify / plan / policy、plan要約、共通hook判定、Python regression test |
 | `fixtures/plans/` | AWSなしでrisk/policyを試す合成plan JSON |
 | `.github/workflows/` | 認証不要のPR検証と、opt-inの実AWS plan |
 | `docs/` | toolchain、承認済みmodule、context取得、state、production gate |
@@ -54,10 +57,13 @@ private subnetはinternet default routeを持ちません。SGはingress/egress�
 flowchart TD
   U["User / Issue"] --> A["Coding Agent"]
   A --> I["Root / nested AGENTS.md"]
-  I --> E["Edit Terraform"]
-  E --> V["make verify"]
+  I --> S["Task skill + PreToolUse gate"]
+  S --> E["Edit Terraform"]
+  E --> F["PostToolUse: fast fmt feedback"]
+  F --> V["make verify"]
   V -->|FAIL| E
-  V -->|PASS| P["Terraform plan"]
+  V -->|PASS| G["Fresh verification receipt"]
+  G --> P["Terraform plan"]
   P --> R["Plan Risk Analysis"]
   R --> O["OPA / Policy"]
   O -->|deny| E
@@ -74,6 +80,10 @@ HIGH RISKから人間への通知は、policyやPRを省略できる経路では
 AgentはIssueの意図を確認し、root/nested AGENTSを読み、固定版の公式資料を参照して小さく編集します。
 `make verify` の失敗は修正して再実行し、実planを作れない場合は未実行と明記します。
 共有module変更はprodへの波及を確認します。AGENTSを自動で読まないclientには起動時に明示的に読ませます。
+
+AGENTSは共通規約、skillsは作業手順、hooksは決定論的な自動チェックを担います。
+`make verify` は全成功時だけ内容hash付き記録を作り、編集後の古いPASSを検出します。
+Git hookの導入と任意のagent adapterは [Hooksとskills](docs/hooks-and-skills.md) を参照してください。
 
 ## 4. ローカルで試す
 
@@ -114,6 +124,9 @@ OPAを導入すると、`make demo` で安全fixtureの集計とpolicy評価、`
 | `make lint` | 各rootでTFLintの同じ設定・固定版 | 不要 |
 | `make policy-test` | Rego strict check / test / safe・unsafe fixtureの実行 | 不要 |
 | `make verify` | fmt **check** → init / validate / test / lint → Python → policy-test | 不要 |
+| `make hooks-install` | clone単位でGit hooksを有効化。既存設定は保護 | 不要 |
+| `make harness-status` | 現在の内容と成功したverify記録を照合 | 不要 |
+| `make risk-summary ENV=dev PLAN_JSON=/absolute/plan.json` | 既存planの要約。HIGH RISKは非ゼロ | 不要 |
 | `make plan` | S3 backend init → real plan → JSON → risk → policy | **必要** |
 | `make policy ENV=dev PLAN_JSON=/absolute/plan.json` | 外部指定の環境を使ったplan policy評価 | 不要 |
 
@@ -237,6 +250,7 @@ MCPを使わない場合も同じ資料を直接参照できます。
 ## 12. CIでの動作
 
 `terraform-check.yml` はPR、mainへのpush、手動、reusable workflowで実行し、`make verify` を呼びます。
+検証後にfresh receiptとpre-push接続も確認します。
 最小のcontents readだけを持ち、AWS secret / OIDC / `pull_request_target` を使用しません。
 Actionsはcommit SHA、Terraform/Provider/TFLint/OPAは版、Provider/OPAはchecksumで固定します。
 
@@ -261,12 +275,16 @@ apply workflowはありません。GitHubへ配置しただけではbranch prote
 - multi-AZ、VPC Flow Logs、default SG閉鎖、NACL、S3 lifecycle/logging、必要時のKMSを設計。
 - sandbox accountでintegration testを追加し、drift検出とplan保管・承認記録を整備。
 - CODEOWNERS、required check、OIDC、state lock権限、外部apply/break-glass基盤を設定。
+- 各clientでhook登録と拒否動作を確認し、skillsの読込みを接続。制御ファイルはrequired reviewで保護。
 - 新resourceのpolicy、unknown処理、最小IAM権限を追加し、policy自体を独立してレビュー。
 
 S3の `force_destroy=false` は空bucketの削除を止めません。policyと権限・承認が必要です。
 VPCのAWS生成default SG等を含め、このサンプルはそのままproductionへ適用する完成済み基盤ではありません。
 
 ## 参考資料
+
+- [Harness Engineering Best Practices（ご提供の参考記事）](https://nyosegawa.com/posts/harness-engineering-best-practices-2026/)
+- [Hooks / Skillsの実装と接続仕様](docs/hooks-and-skills.md)
 
 - [Terraform Provider Mocking](https://developer.hashicorp.com/terraform/language/tests/mocking)
 - [Terraform plan JSON format](https://developer.hashicorp.com/terraform/internals/json-format)
