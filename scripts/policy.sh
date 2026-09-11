@@ -30,5 +30,6 @@ Path(sys.argv[2]).write_text(json.dumps({"context": {"environment": sys.argv[1]}
 PY
 args=(--data "$ROOT/policies/opa/terraform.rego" --data "$context" --input "$PLAN_JSON" --strict-builtin-errors)
 opa eval "${args[@]}" --format pretty 'data.terraform.guardrails.deny'
-# --fail on the equality query makes false/undefined fail, unlike printing deny alone.
-opa eval "${args[@]}" --format pretty --fail 'data.terraform.guardrails.allow == true'
+# Unification with true has no solution for false; --fail then exits 1.
+# A boolean comparison (==) may still produce a defined false result and exit 0.
+opa eval "${args[@]}" --format pretty --fail 'data.terraform.guardrails.allow = true'
