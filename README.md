@@ -7,7 +7,7 @@ AIコーディングエージェントがTerraformを**安全・再現可能・�
 人間の判断、apply権限を分離します。Codex、Claude Code、Copilot系などで共通の考え方を使えます。
 
 **まず `make verify`。実AWSのplanは明示的な設定後のみ。production applyは実装しません。**
-生成時点の実行結果と未検証項目は [VALIDATION.md](VALIDATION.md) を参照してください。
+ローカル生成環境とGitHub Actionsそれぞれの実行結果は [VALIDATION.md](VALIDATION.md) を参照してください。
 
 ## 1. Harness Engineeringとは
 
@@ -183,6 +183,8 @@ CIのroot選択、環境ごとのIAM/account/state、rootの固定environment va
 
 `opa test` の正例・負例と、fixtureの終了コードもCIで検証します。
 `opa eval` でdenyを表示するだけではgateにならないため、allow条件の成立を `--fail` で要求します。
+queryは `allow = true` のunificationを使います。`allow == true` の比較だけではfalseでも結果が定義され、
+CLIが成功終了する場合があるため、安全・危険fixtureの終了コードもテストします。
 policyはサンプル内のresourceを中心にした例であり、すべてのAWS公開経路やIAMの危険性を網羅しません。
 tag非対応resourceを誤って拒否しないようtag対象を明示しており、module拡張時にはpolicyも更新します。
 
@@ -248,6 +250,9 @@ Actionsはcommit SHA、Terraform/Provider/TFLint/OPAは版、Provider/OPAはchec
 
 plan workflowは先にcredentialなしのverifyを再実行します。prodの変更があればrisk gateで非ゼロ終了します。
 apply workflowはありません。GitHubへ配置しただけではbranch protection、reviewer、IAMは設定されません。
+
+`terraform-locks.yml` は手動で各platformの正式なProvider lockfile候補を生成します。
+署名を検証した結果をjob logでレビューし、全rootへコミットします。自動更新は行いません。
 
 ## 13. 実運用へ発展させる
 

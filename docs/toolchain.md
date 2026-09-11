@@ -11,7 +11,8 @@
 
 AWS Provider 6.0.0は説明用の固定ベースラインであり、最新版という意味ではない。
 実環境導入時には採用版のrelease notes / security情報を再評価し、独立PRで更新する。
-この生成環境にはTerraform / TFLint / OPAがなく、これらの版での実行互換性は未確認。
+ローカル生成環境にはTerraform / TFLint / OPAがないため、固定版での実行はGitHub Actionsで検証する。
+ローカルとCIの結果を [VALIDATION.md](../VALIDATION.md) に分けて記録する。
 
 5つのrootのlockfileは、CI上のTerraform 1.16.2で `terraform providers lock` を実行して生成した。
 各platformの配布物についてHashiCorp署名を確認した結果の `h1:` と `zh:` をコミットしている。

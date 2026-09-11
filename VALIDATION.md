@@ -1,4 +1,33 @@
-# 作成時の検証結果
+# 検証結果
+
+## GitHub Actionsでの検証（2026-09-11）
+
+[Terraform Check成功run](https://github.com/mafron/agentic-iac-template/actions/runs/34565676753)
+で、commit `22f7fd119a5ee9cc9f6614242ceab68e190b7200` の `make verify` が **PASS**。
+Ubuntu 24.04 / Linux amd64、Terraform 1.16.2、AWS Provider 6.0.0、TFLint 0.64.0、OPA 1.20.2。
+
+| 検証 | 結果 |
+|---|---|
+| Terraform fmt check | PASS |
+| backend無効・readonly lockでのinit / validate | 全5 root PASS |
+| Terraform Provider Mocking test | 12件 PASS |
+| TFLint | 全5 root PASS |
+| Python regression test | 10件 PASS |
+| OPA strict check / policy test | 19件 PASS |
+| safe / unsafe fixtureのCLI gate | 許可は0、拒否は1で終了しPASS |
+
+CIで発見し修正した問題:
+
+- `head` と `pipefail` によるバージョン取得時のSIGPIPE。
+- Terraformが要求するpolicy JSON expression内の書式。
+- ZIP checksumのみではreadonly init後の展開済みprovider検証に不足するため、
+  TerraformがHashiCorp署名を確認して生成した5platform分の正式lockfileへ置換。
+- OPAのboolean比較はfalseでも結果が定義されるため、trueとのunificationと`--fail`で拒否を強制。
+
+実AWS plan / apply / state操作は実行していない。5platformのlock生成は、
+すべてのplatformでテストを実行したという意味ではない。
+
+## 初回ローカル生成環境の記録（履歴）
 
 実施日: 2026-09-11 UTC。以下はこの作成環境での結果です。CIを実行した結果ではありません。
 
@@ -31,8 +60,8 @@ Terraform/Regoの構造は自己レビューし、明らかな参照の不整合
 
 ## 既知の制約
 
-- AWS Providerは6.0.0の固定ベースライン。採用版の再評価と実CLIによる互換性確認が必要。
-- lockfileのZIP hashは公式manifest由来だが、実init/providers lockは未実行。
+- AWS Providerは6.0.0の固定ベースライン。実運用の採用版とAWS API上の動作は別途再評価する。
+- 現在のlockfileはCI上の実providers lockで生成済み。実行テストはLinux amd64のみ。
 - Mockは実API、実IAM、drift、quota、bucket名の一意性を保証しない。
 - policyは対象resourceと代表的な公開経路の例。包括的なAWS security scannerではない。
 - GitHub branch protection、CODEOWNERS、Environment reviewer、OIDC/IAM、state bucket、
