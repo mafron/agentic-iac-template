@@ -1,0 +1,38 @@
+name: Terraform Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (no AWS credentials)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Read pinned versions
+        id: versions
+        shell: bash
+        run: |
+          echo "terraform=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+          echo "tflint=v$(cat .tflint-version)" >> "$GITHUB_OUTPUT"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ steps.versions.outputs.terraform }}
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4.1.1
+        with:
+          tflint_version: ${{ steps.versions.outputs.tflint }}
+      - name: Install checksum-verified OPA
+        run: bash scripts/install-opa-ci.sh
+      - name: Fmt, validate, mock tests, lint, regression tests and policy
+        run: make verify

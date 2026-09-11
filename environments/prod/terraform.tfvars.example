@@ -1,0 +1,4 @@
+# Copy to a private, absolute path for a REAL plan; no AWS use in mock tests.
+aws_account_id = "111111111111"
+bucket_name    = "harness-prod-111111111111-change-me"
+owner          = "platform"

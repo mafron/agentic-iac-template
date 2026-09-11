@@ -1,0 +1,129 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.16.2",
+  "complete": true,
+  "errored": false,
+  "applyable": true,
+  "planned_values": {},
+  "resource_changes": [
+    {
+      "address": "aws_security_group.example",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "example",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "tags": {
+            "Project": "harness",
+            "Environment": "dev",
+            "Owner": "platform",
+            "ManagedBy": "Terraform"
+          },
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 22,
+              "to_port": 22,
+              "cidr_blocks": [
+                "0.0.0.0/0"
+              ]
+            }
+          ]
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_policy.example",
+      "mode": "managed",
+      "type": "aws_iam_policy",
+      "name": "example",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "tags": {
+            "Project": "harness",
+            "Environment": "dev",
+            "Owner": "platform",
+            "ManagedBy": "Terraform"
+          },
+          "policy": "{}"
+        },
+        "after": {
+          "tags": {
+            "Project": "harness",
+            "Environment": "dev",
+            "Owner": "platform",
+            "ManagedBy": "Terraform"
+          },
+          "policy": "{}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_s3_bucket.example",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "example",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bucket": "example",
+          "tags": {
+            "Project": "harness",
+            "Environment": "dev",
+            "Owner": "platform",
+            "ManagedBy": "Terraform"
+          }
+        },
+        "after": null,
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_subnet.example",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "example",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create",
+          "delete"
+        ],
+        "before": {
+          "cidr_block": "10.42.10.0/24",
+          "tags": {
+            "Project": "harness",
+            "Environment": "dev",
+            "Owner": "platform",
+            "ManagedBy": "Terraform"
+          }
+        },
+        "after": {
+          "cidr_block": "10.42.11.0/24",
+          "tags": {
+            "Project": "harness",
+            "Environment": "dev",
+            "Owner": "platform",
+            "ManagedBy": "Terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    }
+  ],
+  "_fixture": "Synthetic review input, not a Terraform-generated AWS plan"
+}

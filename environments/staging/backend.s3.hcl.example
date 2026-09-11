@@ -1,0 +1,8 @@
+# Provision this backend separately; never bootstrap it with this workload state.
+bucket                = "replace-with-staging-state-bucket"
+key                   = "harness/staging/terraform.tfstate"
+region                = "ap-northeast-1"
+encrypt               = true
+use_lockfile          = true
+expected_bucket_owner = "111111111111"
+# No access keys here. Use the current short-lived session.

@@ -1,0 +1,11 @@
+# Rename to CODEOWNERS after replacing these with real teams that have write access.
+# Enable required code owner review in repository rules; this example alone enforces nothing.
+*                         @YOUR-ORG/platform
+/AGENTS.md                @YOUR-ORG/platform-security
+/**/AGENTS.md             @YOUR-ORG/platform-security
+/.github/                 @YOUR-ORG/platform-security
+/scripts/                 @YOUR-ORG/platform-security
+/policies/                @YOUR-ORG/platform-security
+/modules/network/         @YOUR-ORG/platform-security
+/modules/application/     @YOUR-ORG/platform-security
+/environments/prod/        @YOUR-ORG/production-owners

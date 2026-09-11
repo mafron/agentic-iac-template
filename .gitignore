@@ -1,0 +1,24 @@
+**/.terraform/*
+.harness/
+**/*.tfstate
+**/*.tfstate.*
+**/terraform.tfstate.d/
+**/tfplan
+**/*.tfplan
+**/plan.json
+**/crash.log
+**/crash.*.log
+**/*.tfvars
+**/*.tfvars.json
+**/*.s3.hcl
+**/*_override.tf
+**/*_override.tf.json
+**/override.tf
+**/override.tf.json
+.env
+.env.*
+*.pem
+*.key
+__pycache__/
+*.pyc
+# .terraform.lock.hcl and *.example MUST remain tracked.
