@@ -12,6 +12,9 @@
 - Codexでは `/skills`、`$terraform-change`、`$terraform-plan-review` で選択する。
 - clientが自動検出しなければ明示的にファイルを開く。skillは権限を拡張しない。
 - `docs/hooks-and-skills.md` のhook契約に従う。拒否を別toolやhook解除で回避しない。
+- 探索には `ls -la`、`rg --files --hidden`、`rg --files -g '*.tf'`、`rg -n pattern modules` を使える。
+  glob/正規表現の記号はquoteし、1回のtool callで1コマンドを実行する。`&&` やpipeで連結しない。
+- `make help` は通常profileから使用できる。makeはrepoルートで実行し、読み取り専用の探索はnested cwdでもよい。
 - verify後は `make harness-status` で現在の入力を再確認する。編集後はverifyをやり直す。
 - hook / skill / gate自体の変更は、理由と負例testを添えて独立した人間のレビュー対象にする。
 

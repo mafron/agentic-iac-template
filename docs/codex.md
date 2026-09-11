@@ -56,6 +56,8 @@ wrapperとhook script自体をレビューし、実AWSの権限は別主体に�
 導入者は使い捨てcloneで次を確認します。
 
 - 許可したsource readとapplicationのpatchが通り、patch後にfmt feedbackが返る。
+- `make help`、`ls -la`、`rg --files -g '*.tf'`、`rg --files --hidden` を1つずつ実行できる。
+  nested cwdでは探索を実行でき、makeはrepoルートへ戻して実行する。`&&` / pipeでの連結は対象外。
 - productionを含む複数file patch、保護pathへのmove、raw applyがPreToolUseで拒否される。
 - 未実行・古いverify記録ならStopが一度修正を要求し、続けて失敗する場合はFAILを報告する。
 - tool欠如・timeoutをPASSと扱わず、`make verify` 成功後だけ `make harness-status` がPASSになる。

@@ -97,7 +97,7 @@ class CodexHookTests(unittest.TestCase):
         (self.root / 'alias.md').symlink_to(self.root / 'README.md')
         for command in ('cat ../outside', 'cat /etc/passwd', 'cat .env', 'cat alias.md',
                         'cat README.md > AGENTS.md', 'rg --pre=python README.md',
-                        'rg --files --hidden', 'rg -n -e Terraform -- .env',
+                        'rg --files --follow', 'rg -n -e Terraform -- .env',
                         "sed -n '1,2w AGENTS.md' README.md", 'cat --help',
                         'make verify; python3 -c pass'):
             with self.subTest(command=command):

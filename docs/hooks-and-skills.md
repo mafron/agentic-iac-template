@@ -77,6 +77,7 @@ symlinkを介した外部入力は拒否します。source/moduleをcacheや除�
 [Codexの開始手順](codex.md) に従ってprojectとhook定義を確認・信頼します。
 hookはsessionのcwdから起動するため、設定中のcommandはGit rootからscriptを解決します。
 Bash経由のmakeはrepoルートのsessionだけを受け付けます。
+読み取り専用の探索はcheckout内のnested cwdでも実行できます。相対pathはそのcwdを基準に検査します。
 
 | Event | 判定・feedback |
 |---|---|
@@ -93,12 +94,19 @@ adapterはpatchのfile境界とpathを保守的に解析し、不明なdirective
 
 許可する単純なコマンドは、以下の各入口を**1回に1つ**実行する形です。
 
-- `make fmt`、`make validate`、`make test`、`make lint`、`make verify`、`make python-test`、
+- `make help`（引数なしの `make` もhelp）、`make fmt`、`make validate`、`make test`、`make lint`、`make verify`、`make python-test`、
   `make policy-test`、`make demo`、`make harness-status`
 - `git status --short`、`git diff`、`git diff --stat`、`git diff --cached`
-- `pwd`、`rg --files`、`rg --files modules`
+- `pwd`、`ls`、`ls -la`、`ls -lah modules`（lsのoptionは `a/l/h/d/1/F` を1つのflagにまとめる）
+- `rg --files`、`rg --files --hidden`、`rg --files -g '*.tf' modules`、`rg --files --hidden --glob='AGENTS.md'`
+- `find . -maxdepth 3 -type f -name '*.tf'`（探索rootは1つ、`-maxdepth`、`-type f/d`、`-name`、`-iname`、末尾の `-print` のみ）
 - `cat README.md AGENTS.md`、`sed -n '1,100p' README.md`
-- `rg -n -e module -- modules`（patternと対象pathを指定する形式）
+- `rg -n module modules`、`rg -n -e 'module|output' -- modules`、`rg -F 'module example' README.md`
+
+`rg --files` はファイル名の一覧です。`--hidden`、`-g` / `--glob`、`--no-config` と複数のpathを使えます。
+一覧には隠しファイルや生成物の名前も含まれ得ます。内容検索では `--hidden` / glob optionを許可せず、
+`-n` / `-i` / `-F` / `-S`（各long formも可）、`-e` / `--regexp`、`--no-config` を使います。
+pathを省略する標準形にも対応し、path省略時はsession cwd内を検索します。
 
 source readのpathはcheckout内の実在するpathに限定し、parent traversal、symlink、
 代表的なcredential/state file名、`.git` は拒否します。再帰検索を包括的なsecret scannerとは扱いません。
@@ -109,7 +117,12 @@ source readのpathはcheckout内の実在するpathに限定し、parent travers
 `make policy ENV=dev PLAN_JSON=/absolute/plan.json`（ENVはdev/staging/prod）を使えます。
 
 任意のshellを正しく解析できると仮定せず、`;`、pipe、改行、command substitution、環境変数の前置、
-Makefile差替えなどを拒否するallowlistです。禁止記号は引用符の中でも拒否するため、複雑な検索式も対象外です。
+Makefile差替えなどを拒否するallowlistです。globや正規表現の記号はquoteした引数として受け付けます。
+例えば `rg --files -g '*.tf'` は許可し、shellが展開する `rg --files *.tf` は拒否します。
+変数展開、command substitution、backslash escapeは引用符の中でも対象外です。
+`find -exec` / `-delete`、`rg --pre` / `--follow` など任意実行やsymlink追跡につながるoptionも拒否します。
+拒否時には使える探索例と1コマンドずつ実行する案内を返します。nested cwdからmakeを呼んだ場合は、
+レビュー済みMakefileを使うためrepoルートで実行するよう、別の理由を返します。
 raw Terraform、AWS CLI、interpreter、apply、destroy、state/import/force-unlockは通常profileのBashから使えません。
 このスクリプト自身は入力commandやpatchを実行しません。
 
@@ -144,6 +157,9 @@ skillだけで分岐を強制せず、記載された検証をCLIとCIでも実�
 
 `make python-test` はshell bypass、保護path、古い記録、ignored tfvars、staged artifact、
 実Git hookの起動、別refのpush、JSON adapter、Stopの終了条件、複数file patch全体の拒否、renameとsource readの範囲を検証します。
+`make help`、quoteしたglobの探索、nested cwd、検索optionの並び替え、禁止optionも回帰testに含めます。
+実ripgrepがあれば、一時directory内でBashから探索commandを実行して結果を検証します。
+ripgrepがない環境ではその実CLI接続testはSKIPとなり、判定関数のtestは実行します。
 実Terraformがある場合は、indexだけが不正書式のケースも実CLIでテストします。
 Terraformがない場合、その1件はSKIPとして表示します。全体verifyは依存不足でFAILです。
 CIではTerraformを用意し、さらに全検証後に検証記録とpre-pushの接続を確認します。

@@ -5,7 +5,8 @@ export ENV VAR_FILE BACKEND_CONFIG PLAN_JSON
 
 .PHONY: help fmt validate test lint verify plan policy policy-test demo python-test hooks-install harness-status risk-summary codex-check
 help:
-	@echo 'fmt | validate | test | lint | verify | plan | policy | policy-test | demo | hooks-install | harness-status | risk-summary | codex-check'
+	@echo 'Agent (repository root): help | fmt | validate | test | lint | verify | plan | policy | policy-test | python-test | demo | harness-status | risk-summary'
+	@echo 'Setup (human terminal): hooks-install | codex-check'
 fmt:
 	@bash scripts/verify.sh fmt
 validate:
