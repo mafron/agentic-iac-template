@@ -1,0 +1,33 @@
+name: Terraform Lockfile Candidate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/terraform-locks.yml
+
+permissions:
+  contents: read
+
+jobs:
+  locks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Read pinned Terraform version
+        id: version
+        run: echo "terraform=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ steps.version.outputs.terraform }}
+          terraform_wrapper: false
+      - name: Generate candidate using signed provider packages
+        run: |
+          terraform -chdir=modules/network providers lock \
+            -platform=linux_amd64 -platform=linux_arm64 \
+            -platform=darwin_amd64 -platform=darwin_arm64 -platform=windows_amd64
+          cat modules/network/.terraform.lock.hcl
+      # Review the log's candidate and commit it to all five roots; no auto-write.
