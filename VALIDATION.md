@@ -1,6 +1,32 @@
 # 検証結果
 
-## GitHub Actionsでの検証（2026-09-11）
+## Hook / skill拡張のローカル検証（2026-09-11）
+
+| 対象 | 結果 |
+|---|---|
+| Python regression | 37件中36件PASS、実Terraformを使うstaged fmt 1件は依存不足でSKIP |
+| 実Git hook | 一時repositoryでpre-commit拒否・pre-push成功を確認 |
+| skill形式 | skill-creatorのquick_validateで両SKILL.md PASS |
+| Shell / workflow / hook設定 | Bash構文、YAML、JSON、文書相対link PASS |
+| `make verify` / `make harness-status` | Terraform / TFLint / OPA欠如でFAIL。古いPASS記録を残さない |
+| 実agent clientセッション | 未実行。JSON adapter契約をPythonで検証 |
+
+### Hook / skill拡張のGitHub Actions結果
+
+[PR #4](https://github.com/mafron/agentic-iac-template/pull/4) の
+[Terraform Check](https://github.com/mafron/agentic-iac-template/actions/runs/34568890123) で、
+commit `d1177766e2e332d813b64296e26de0de17535f60` の全検証が **PASS**。
+固定版toolchainは下記初期CIと同じです。
+
+- Terraform fmt、5 rootのbackend無効init / validate / TFLint: PASS。
+- Provider Mocking: 12件PASS。
+- Python regression: **37件すべてPASS、SKIPなし**。実Terraformのstaged blob検査を含む。
+- OPA: 19件PASS、安全/危険fixtureのCLI gateもPASS。
+- 全体verifyから記録生成、`make harness-status`、実pre-push入口への接続: PASS。
+
+native agent client、実AWS plan / apply / state操作は未実行です。
+
+## 初期GitHub Actionsでの検証（2026-09-11）
 
 [Terraform Check成功run](https://github.com/mafron/agentic-iac-template/actions/runs/34565676753)
 で、commit `22f7fd119a5ee9cc9f6614242ceab68e190b7200` の `make verify` が **PASS**。

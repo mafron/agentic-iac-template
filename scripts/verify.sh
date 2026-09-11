@@ -4,6 +4,11 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 cd "$ROOT"
 mode="${1:-all}"
 case "$mode" in all|fmt|validate|test|lint) ;; *) die "Unsupported verify mode: $mode" ;; esac
+# Invalidate first: missing tools or any later failure must not retain a PASS.
+if [[ "$mode" == all ]]; then
+  rm -f "$ROOT/.harness/verification.json"
+  verification_input="$(python3 scripts/harness.py fingerprint)"
+fi
 clean_cli_context
 
 # Verify jobs receive no AWS credentials, including local profile or IMDS access.
@@ -55,5 +60,6 @@ done
 if [[ "$mode" == all ]]; then
   python3 -m unittest discover -s scripts/tests -v
   bash scripts/policy.sh test
+  python3 scripts/harness.py record --expected "$verification_input"
 fi
 echo "PASS: $mode"

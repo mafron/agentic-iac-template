@@ -36,3 +36,9 @@ jobs:
         run: bash scripts/install-opa-ci.sh
       - name: Fmt, validate, mock tests, lint, regression tests and policy
         run: make verify
+      - name: Verify completion evidence and pre-push connection
+        shell: bash
+        run: |
+          make harness-status
+          head_sha="$(git rev-parse HEAD)"
+          printf 'refs/heads/ci %s refs/heads/ci %040d\n' "$head_sha" 0 | .githooks/pre-push

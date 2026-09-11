@@ -22,3 +22,5 @@
 __pycache__/
 *.pyc
 # .terraform.lock.hcl and *.example MUST remain tracked.
+
+.claude/settings.local.json
