@@ -19,13 +19,15 @@ terraform_version() {
 tflint_version() {
   need tflint
   local actual
-  actual="$(tflint --version | head -n 1)"
+  actual="$(tflint --version)"
+  actual="${actual%%$'\n'*}"
   [[ "$actual" == "TFLint version $(cat "$ROOT/.tflint-version")" ]] || die 'TFLint version differs from .tflint-version'
 }
 opa_version() {
   need opa
   local actual
-  actual="$(opa version | head -n 1)"
+  actual="$(opa version)"
+  actual="${actual%%$'\n'*}"
   [[ "$actual" == "Version: $(cat "$ROOT/.opa-version")" ]] || die 'OPA version differs from .opa-version'
 }
 clean_cli_context() {

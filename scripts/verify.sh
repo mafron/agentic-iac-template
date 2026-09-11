@@ -29,7 +29,7 @@ if [[ "$mode" == fmt ]]; then
   terraform fmt -recursive
   exit
 fi
-if [[ "$mode" == all ]]; then terraform fmt -check -recursive; fi
+if [[ "$mode" == all ]]; then terraform fmt -check -diff -recursive; fi
 
 # Discover all module/environment roots in a stable order, including future roots.
 mapfile -t roots < <(find modules environments -mindepth 2 -maxdepth 2 -name versions.tf -print | sort)
