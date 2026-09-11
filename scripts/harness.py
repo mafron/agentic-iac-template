@@ -17,7 +17,7 @@ SIMPLE_TARGETS = {
     'fmt', 'validate', 'test', 'lint', 'verify', 'python-test',
     'policy-test', 'demo', 'harness-status',
 }
-PROTECTED_DIRS = {'.github', '.githooks', '.agents', '.claude', 'scripts', 'policies'}
+PROTECTED_DIRS = {'.github', '.githooks', '.agents', '.codex', '.claude', 'scripts', 'policies'}
 PROTECTED_NAMES = {
     'AGENTS.md', 'CLAUDE.md', 'Makefile', 'makefile', 'GNUmakefile', '.gitignore', '.gitattributes',
     '.terraform-version', '.tflint-version', '.opa-version', '.tflint.hcl',
@@ -101,7 +101,26 @@ def verification_status(root):
     return True, 'PASS: current inputs match a successful make verify.'
 
 
-def command_allowed(command):
+def readable_path(root, raw_path):
+    """Allow scoped source reads without accepting options, secrets or symlinks."""
+    if not raw_path or raw_path.startswith('-'):
+        return False
+    supplied = Path(raw_path)
+    if '..' in supplied.parts:
+        return False
+    root = root.resolve()
+    path = supplied if supplied.is_absolute() else root / supplied
+    if not path.is_relative_to(root):
+        return False
+    rel = path.relative_to(root)
+    if '.git' in rel.parts or private_path(rel):
+        return False
+    if any(p.is_symlink() for p in (path, *path.parents) if p.is_relative_to(root)):
+        return False
+    return path.is_file() or path.is_dir()
+
+
+def command_allowed(command, root=ROOT):
     """A deliberately narrow shell grammar; never execute agent-supplied text."""
     if not isinstance(command, str) or re.search(r'[\n\r;&|`$<>\\*?\[\]{}()!#~]', command):
         return False
@@ -112,6 +131,17 @@ def command_allowed(command):
     if words in (['git', 'status', '--short'], ['git', 'diff'],
                  ['git', 'diff', '--stat'], ['git', 'diff', '--cached']):
         return True
+    if words == ['pwd'] or words == ['rg', '--files']:
+        return True
+    if len(words) >= 2 and words[0] == 'cat':
+        return all(readable_path(root, p) and (root / p).is_file() for p in words[1:])
+    if len(words) == 3 and words[:2] == ['rg', '--files']:
+        return readable_path(root, words[2])
+    if len(words) >= 6 and words[:3] == ['rg', '-n', '-e'] and words[4] == '--':
+        return all(readable_path(root, p) for p in words[5:])
+    if (len(words) == 4 and words[:2] == ['sed', '-n']
+            and re.fullmatch(r'[1-9][0-9]*(,[1-9][0-9]*)?p', words[2])):
+        return readable_path(root, words[3]) and (root / words[3]).is_file()
     if len(words) == 2 and words[0] == 'make' and words[1] in SIMPLE_TARGETS:
         return True
     if len(words) < 3 or words[0] != 'make':
@@ -134,7 +164,8 @@ def command_allowed(command):
 
 
 def guarded_path(root, cwd, raw_path):
-    if not isinstance(raw_path, str) or not raw_path:
+    if (not isinstance(raw_path, str) or not raw_path
+            or any(ord(c) < 32 for c in raw_path)):
         raise GateError('Missing file path.')
     root = root.resolve()
     cwd = Path(cwd).resolve()
@@ -217,9 +248,25 @@ def install_hooks(root):
     print('Installed repository-local Git hooks. CI remains mandatory.')
 
 
+def check_codex_rules(root):
+    for command in (['terraform', '-chdir=environments/prod', 'apply'],
+                    ['aws', 'sts', 'get-caller-identity']):
+        try:
+            result = subprocess.run(
+                ['codex', 'execpolicy', 'check', '--rules',
+                 str(root / '.codex/rules/terraform.rules'), '--', *command],
+                check=True, capture_output=True, text=True, timeout=30)
+        except FileNotFoundError as exc:
+            raise GateError('NOT RUN: install Codex CLI to validate native rules.') from exc
+        verdict = json.loads(result.stdout)
+        if not isinstance(verdict, dict) or verdict.get('decision') != 'forbidden':
+            raise GateError('Native Codex rule did not forbid the test command.')
+    print('PASS: native Codex rules forbid direct Terraform and AWS commands.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('gate', choices=['fingerprint', 'record', 'status', 'pre-commit', 'pre-push', 'install'])
+    parser.add_argument('gate', choices=['fingerprint', 'record', 'status', 'pre-commit', 'pre-push', 'install', 'rules-check'])
     parser.add_argument('--expected')
     args = parser.parse_args()
     try:
@@ -239,7 +286,9 @@ def main():
             pre_push(ROOT, sys.stdin.read())
         elif args.gate == 'install':
             install_hooks(ROOT)
-    except (GateError, OSError, UnicodeError, subprocess.CalledProcessError) as exc:
+        elif args.gate == 'rules-check':
+            check_codex_rules(ROOT)
+    except (GateError, OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f'FAIL: {exc}', file=sys.stderr)
         return 1
     return 0

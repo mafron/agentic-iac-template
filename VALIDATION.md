@@ -1,5 +1,22 @@
 # 検証結果
 
+## Codexへの接続変更（2026-09-11）
+
+| 対象 | ローカル結果 |
+|---|---|
+| Python regression | **49件中48件PASS、1件SKIP**。Codex payload、複数file patch、move、保護path、source readを追加検証 |
+| 設定に記載したhook command | nested cwdから実際に起動し、Git root解決とJSON応答がPASS。patch自体は実行しない |
+| 実Terraformのstaged fmt | Terraform欠如により上記1件をSKIP |
+| skill形式 / Bash / JSON / TOML / 相対link / diff | PASS |
+| `make verify` | **FAIL（依存不足）**。Terraform / TFLint / OPA欠如を列挙して非ゼロ停止 |
+| `make codex-check` | **未実行（依存不足を検出して非ゼロ停止）**。実Codex CLIなし |
+| native Codex CLI / IDEのhook発火・trust・sandbox | **未実行**。JSON契約testを実セッション検証とは扱わない |
+| 実AWS plan / apply / state操作 | 未実行 |
+
+この節はローカル結果です。PRのTerraform Checkが、固定版toolchainを用いた独立検証を行います。
+Codex CLIは共通CIの必須依存にしていません。導入先で [Codex接続確認](docs/codex.md) を行ってください。
+以下は過去のPR・初期作成時の記録です。
+
 ## Hook / skill拡張のローカル検証（2026-09-11）
 
 | 対象 | 結果 |

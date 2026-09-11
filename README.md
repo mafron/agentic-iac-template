@@ -4,7 +4,8 @@ Terraform AWS Harness Engineering sample.
 
 AIコーディングエージェントがTerraformを**安全・再現可能・検証可能**に変更するための、
 小さな実践リポジトリです。AWSへ接続しないMock検証を標準入口にし、実plan、policy、
-人間の判断、apply権限を分離します。Codex、Claude Code、Copilot系などで共通の考え方を使えます。
+人間の判断、apply権限を分離します。**主な接続先はCodex CLI / IDE**です。
+AGENTS、skills、Make、Git hooksは共通の仕組みとして、他のagent clientでも流用できます。
 
 **まず `make verify`。実AWSのplanは明示的な設定後のみ。production applyは実装しません。**
 ローカル生成環境とGitHub Actionsそれぞれの実行結果は [VALIDATION.md](VALIDATION.md) を参照してください。
@@ -35,7 +36,9 @@ Terraformには宣言的コード、provider schema、plan、test、stateとい�
 | `AGENTS.md` | Agentの永続的な共通契約、作業別skillへの入口 |
 | `.agents/skills/` | Terraform変更とplanレビューのportableなSKILL.md |
 | `.githooks/` | staged blobのcommit検査、検証済みHEADのpush検査 |
-| `.claude/settings.json.example` | 任意のagent hook接続例（PreToolUse / PostToolUse / Stop） |
+| `.codex/config.toml` | Codexのsandbox、approval、AWS credentialを渡さないcoding設定 |
+| `.codex/hooks.json` | CodexのPreToolUse / PostToolUse / Stop接続 |
+| `.codex/rules/terraform.rules` | sandbox外実行に対するraw Terraform / AWS CLIの禁止規則 |
 | `modules/network/` | VPC、public/private subnet、route、IGW、SG、Mock test、追加指示 |
 | `modules/application/` | S3、暗号化、公開防止、TLS policy、bucket限定IAM policy、Mock test |
 | `environments/{dev,staging,prod}/` | 独立root、S3 backend宣言、変数、example、composition test |
@@ -83,7 +86,7 @@ AgentはIssueの意図を確認し、root/nested AGENTSを読み、固定版の�
 
 AGENTSは共通規約、skillsは作業手順、hooksは決定論的な自動チェックを担います。
 `make verify` は全成功時だけ内容hash付き記録を作り、編集後の古いPASSを検出します。
-Git hookの導入と任意のagent adapterは [Hooksとskills](docs/hooks-and-skills.md) を参照してください。
+Codexの開始手順は [Codexで使う](docs/codex.md)、判定の詳細は [Hooksとskills](docs/hooks-and-skills.md) を参照してください。
 
 ## 4. ローカルで試す
 
@@ -97,6 +100,11 @@ make verify
 
 この1コマンドは5つのrootをすべて検証し、途中失敗で非ゼロ終了します。
 ツールが欠けている場合もFAILとなり、黙って検証を省略しません。
+
+Codexを使う場合は、初回のprovider取得を上記の通常terminalで済ませ、設定とhookをレビューします。
+repoルートで `make hooks-install` を実行し、Codexでprojectを信頼した後、`/hooks` で定義を確認・信頼します。
+`/skills` から `terraform-change` を選ぶか、`$terraform-change` を指定して依頼します。
+hook定義の変更後は再確認が必要です。詳細とnative接続の確認項目は [Codex導入手順](docs/codex.md) にあります。
 
 OPAをまだ持っていない場合、以下の入口で理解と部分検証を進められます。
 
@@ -126,6 +134,7 @@ OPAを導入すると、`make demo` で安全fixtureの集計とpolicy評価、`
 | `make verify` | fmt **check** → init / validate / test / lint → Python → policy-test | 不要 |
 | `make hooks-install` | clone単位でGit hooksを有効化。既存設定は保護 | 不要 |
 | `make harness-status` | 現在の内容と成功したverify記録を照合 | 不要 |
+| `make codex-check` | 導入者向け。実Codex CLIでnative ruleの禁止判定を確認 | 不要 |
 | `make risk-summary ENV=dev PLAN_JSON=/absolute/plan.json` | 既存planの要約。HIGH RISKは非ゼロ | 不要 |
 | `make plan` | S3 backend init → real plan → JSON → risk → policy | **必要** |
 | `make policy ENV=dev PLAN_JSON=/absolute/plan.json` | 外部指定の環境を使ったplan policy評価 | 不要 |

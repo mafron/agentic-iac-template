@@ -11,5 +11,5 @@
 /environments/prod/        @YOUR-ORG/production-owners
 /.githooks/              @YOUR-ORG/platform-security
 /.agents/                 @YOUR-ORG/platform-security
-/.claude/                 @YOUR-ORG/platform-security
+/.codex/                  @YOUR-ORG/platform-security
 /Makefile                 @YOUR-ORG/platform-security
