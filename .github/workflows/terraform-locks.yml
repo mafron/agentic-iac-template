@@ -2,9 +2,6 @@ name: Terraform Lockfile Candidate
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/terraform-locks.yml
 
 permissions:
   contents: read
