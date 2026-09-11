@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import sys
 
-from harness import ROOT, GateError, command_allowed, fmt_feedback, guarded_path, verification_status
+from harness import ROOT, GateError, command_allowed, fmt_feedback, guarded_path, literal_words, verification_status
 
 
 def deny(reason):
@@ -60,12 +60,19 @@ def handle(event, root=ROOT):
             return deny('Missing tool input.')
         for key in ('cwd', 'workdir'):
             if key in value and (not isinstance(value[key], str)
-                                 or Path(value[key]).resolve() != Path(cwd).resolve()):
+                                 or (Path(cwd) / value[key]).resolve() != Path(cwd).resolve()):
                 return deny('Tool working directory override is outside this hook profile.')
         if tool == 'Bash':
-            # Make must execute at the reviewed root, not a nested/untrusted Makefile.
-            if Path(cwd).resolve() != root.resolve() or not command_allowed(value.get('command'), root):
-                return deny('Use an approved make command at the repository root. See docs/hooks-and-skills.md.')
+            if not command_allowed(value.get('command'), root, Path(cwd)):
+                words = literal_words(value.get('command'))
+                if words and words[0] == 'make' and Path(cwd).resolve() != root.resolve():
+                    return deny('Make must run at the repository root to use the reviewed Makefile. '
+                                'Read-only file exploration may run in nested directories.')
+                return deny('Command or working directory is outside the supported forms. '
+                            'Read-only examples: rg --files, ls -la, rg -n module modules. '
+                            'Run make help or make verify at the repository root. '
+                            'Use one command per call; pipes, && and redirection are unsupported. '
+                            'See docs/hooks-and-skills.md.')
         elif tool == 'apply_patch':
             try:
                 for path in patch_paths(value.get('command')):

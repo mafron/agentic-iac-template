@@ -1,5 +1,15 @@
 # 検証結果
 
+## 探索とmake helpの誤拒否修正（2026-09-11）
+
+- 原因: `help` のallowlist登録漏れ、限定しすぎた探索書式、Bash全体に対するroot cwd限定。
+- ローカルPython: **60件中59件PASS、1件SKIP**。SKIPはTerraform欠如によるstaged fmt test。
+- 実Bashからmake help、ls、find、ripgrepを一時directory内で実行し、glob/正規表現の結果を確認。
+- 読み取りの許可に加えて、shell連結・展開、任意実行option、明示したcheckout外path、
+  symlink、makeの引数上書き・nested cwdからの実行が拒否されることを確認。
+- 実Codex clientセッションはこの修正環境では未実行。導入先で更新後の探索commandも再確認する。
+- ローカル全体verifyはTerraform / TFLint / OPA欠如でFAIL。固定版toolchainの全体検証はPR CIで行う。
+
 ## Codexへの接続変更（2026-09-11）
 
 | 対象 | ローカル結果 |

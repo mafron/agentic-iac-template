@@ -126,6 +126,7 @@ OPAを導入すると、`make demo` で安全fixtureの集計とpolicy評価、`
 
 | 入口 | 処理 | AWS API |
 |---|---|---|
+| `make help` | 通常Agent用の入口と導入者用の入口を表示 | 不要 |
 | `make fmt` | `terraform fmt -recursive` で書式修正 | 不要 |
 | `make validate` | 各rootで `init -backend=false -lockfile=readonly` → validate | 不要 |
 | `make test` | 各rootでbackend無効init → `terraform test` | Mockのため不要 |

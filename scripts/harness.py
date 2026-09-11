@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RECEIPT = Path('.harness/verification.json')
 SKIP_DIRS = {'.git', '.terraform', '.harness', '__pycache__', '.pytest_cache'}
 SIMPLE_TARGETS = {
-    'fmt', 'validate', 'test', 'lint', 'verify', 'python-test',
+    'help', 'fmt', 'validate', 'test', 'lint', 'verify', 'python-test',
     'policy-test', 'demo', 'harness-status',
 }
 PROTECTED_DIRS = {'.github', '.githooks', '.agents', '.codex', '.claude', 'scripts', 'policies'}
@@ -101,7 +101,7 @@ def verification_status(root):
     return True, 'PASS: current inputs match a successful make verify.'
 
 
-def readable_path(root, raw_path):
+def readable_path(root, raw_path, cwd=None):
     """Allow scoped source reads without accepting options, secrets or symlinks."""
     if not raw_path or raw_path.startswith('-'):
         return False
@@ -109,7 +109,7 @@ def readable_path(root, raw_path):
     if '..' in supplied.parts:
         return False
     root = root.resolve()
-    path = supplied if supplied.is_absolute() else root / supplied
+    path = supplied if supplied.is_absolute() else Path(cwd or root) / supplied
     if not path.is_relative_to(root):
         return False
     rel = path.relative_to(root)
@@ -120,28 +120,136 @@ def readable_path(root, raw_path):
     return path.is_file() or path.is_dir()
 
 
-def command_allowed(command, root=ROOT):
-    """A deliberately narrow shell grammar; never execute agent-supplied text."""
-    if not isinstance(command, str) or re.search(r'[\n\r;&|`$<>\\*?\[\]{}()!#~]', command):
+# Accept literal shell words, including quoted glob/regex arguments. Unquoted
+# shell operators, expansion, escapes and control characters remain unsupported.
+SHELL_WORD = (
+    r'''(?:[^\s'"`$\\;&|<>(){}\[\]*?!#~\x00-\x1f]'''
+    r'''|'[^'`$\\\x00-\x1f]*'|"[^"`$\\\x00-\x1f]*")+'''
+)
+
+
+def literal_words(command):
+    if not isinstance(command, str) or not re.fullmatch(
+            rf'[ \t]*{SHELL_WORD}(?:[ \t]+{SHELL_WORD})*[ \t]*', command):
+        return None
+    return shlex.split(command)
+
+
+def file_listing_allowed(args, root, cwd):
+    """rg --files only lists names; never enable preprocessors or symlink following."""
+    paths = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == '--':
+            paths.extend(args[i + 1:])
+            break
+        if arg in {'--hidden', '--no-config'}:
+            pass
+        elif arg in {'-g', '--glob'}:
+            i += 1
+            if i >= len(args) or not args[i]:
+                return False
+        elif arg.startswith('--glob=') or (arg.startswith('-g') and len(arg) > 2):
+            if arg == '--glob=':
+                return False
+        elif arg.startswith('-'):
+            return False
+        else:
+            paths.append(arg)
+        i += 1
+    return all(readable_path(root, p, cwd) for p in paths)
+
+
+def search_allowed(args, root, cwd):
+    """Common rg content searches with literal patterns and scoped paths."""
+    patterns = []
+    paths = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == '--':
+            paths.extend(args[i + 1:])
+            break
+        if arg in {'-n', '--line-number', '-i', '--ignore-case', '-F', '--fixed-strings',
+                   '-S', '--smart-case', '--no-config'}:
+            pass
+        elif arg in {'-e', '--regexp'}:
+            i += 1
+            if i >= len(args):
+                return False
+            patterns.append(args[i])
+        elif arg.startswith('-'):
+            return False
+        else:
+            paths.append(arg)
+        i += 1
+    # With any -e present, ALL positional arguments are paths, even those before
+    # -e. Otherwise the first positional argument is the search pattern.
+    if not patterns and paths:
+        patterns.append(paths.pop(0))
+    return bool(patterns) and all(readable_path(root, p, cwd) for p in paths)
+
+
+def find_allowed(args, root, cwd):
+    """One search root, name/type/depth filters and printing; no action predicates."""
+    if not args or not readable_path(root, args[0], cwd):
         return False
-    try:
-        words = shlex.split(command)
-    except ValueError:
+    options = args[1:]
+    if options and options[-1] == '-print':
+        options = options[:-1]
+    if len(options) % 2:
+        return False
+    for flag, value in zip(options[::2], options[1::2]):
+        if flag == '-maxdepth':
+            if not re.fullmatch(r'[0-9]+', value):
+                return False
+        elif flag == '-type':
+            if value not in {'f', 'd'}:
+                return False
+        elif flag not in {'-name', '-iname'}:
+            return False
+    return True
+
+
+def command_allowed(command, root=ROOT, cwd=None):
+    """A deliberately narrow shell grammar; never execute agent-supplied text."""
+    words = literal_words(command)
+    if not words:
+        return False
+    root = root.resolve()
+    cwd = Path(cwd or root)
+    if not readable_path(root, str(cwd)) or not cwd.is_dir():
         return False
     if words in (['git', 'status', '--short'], ['git', 'diff'],
                  ['git', 'diff', '--stat'], ['git', 'diff', '--cached']):
         return True
-    if words == ['pwd'] or words == ['rg', '--files']:
+    if words == ['pwd']:
         return True
+    if words[0] == 'ls':
+        args = words[1:]
+        if args and re.fullmatch(r'-[alhd1F]+', args[0]):
+            args = args[1:]
+        if args and args[0] == '--':
+            args = args[1:]
+        return all(readable_path(root, p, cwd) for p in args)
     if len(words) >= 2 and words[0] == 'cat':
-        return all(readable_path(root, p) and (root / p).is_file() for p in words[1:])
-    if len(words) == 3 and words[:2] == ['rg', '--files']:
-        return readable_path(root, words[2])
-    if len(words) >= 6 and words[:3] == ['rg', '-n', '-e'] and words[4] == '--':
-        return all(readable_path(root, p) for p in words[5:])
+        return all(readable_path(root, p, cwd) and (cwd / p).is_file() for p in words[1:])
+    if words[:2] == ['rg', '--files']:
+        return file_listing_allowed(words[2:], root, cwd)
+    if words[0] == 'rg':
+        return search_allowed(words[1:], root, cwd)
+    if words[0] == 'find':
+        return find_allowed(words[1:], root, cwd)
     if (len(words) == 4 and words[:2] == ['sed', '-n']
             and re.fullmatch(r'[1-9][0-9]*(,[1-9][0-9]*)?p', words[2])):
-        return readable_path(root, words[3]) and (root / words[3]).is_file()
+        return readable_path(root, words[3], cwd) and (cwd / words[3]).is_file()
+    # Make must use the reviewed root Makefile even when read-only tools use a
+    # nested session cwd. No -C / -f / shell or environment overrides are allowed.
+    if words[0] != 'make' or cwd != root:
+        return False
+    if words == ['make']:
+        return True  # The reviewed default target is help.
     if len(words) == 2 and words[0] == 'make' and words[1] in SIMPLE_TARGETS:
         return True
     if len(words) < 3 or words[0] != 'make':
